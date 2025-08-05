@@ -139,16 +139,33 @@ class _MyHomePageState extends State<MyHomePage> {
           ],
         ),
       ),
-      body: const Center(
-        child: Padding(
-          padding: EdgeInsets.only(bottom: 24.0),
-          child: Text(
-            'Welcome to your Mindful Companion',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
+      body: SafeArea(
+        child: Container(
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.deepPurple.shade100, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.deepPurple.withOpacity(0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Center(
+            child: Padding(
+              padding: EdgeInsets.all(24.0),
+              child: Text(
+                'Welcome to your Mindful Companion',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
-            textAlign: TextAlign.center,
           ),
         ),
       ),
@@ -187,11 +204,26 @@ class _AIChatScreenState extends State<AIChatScreen> {
     });
     _scrollToBottom();
     final aiResponse = await _getGeminiResponse(text);
+    await _typeAIResponse(aiResponse);
     setState(() {
-      _messages.add(_ChatMessage(text: aiResponse, isUser: false));
       _isLoading = false;
     });
     _scrollToBottom();
+  }
+
+  Future<void> _typeAIResponse(String fullText) async {
+    String displayed = '';
+    for (int i = 0; i < fullText.length; i++) {
+      displayed += fullText[i];
+      setState(() {
+        if (_messages.isNotEmpty && !_messages.last.isUser) {
+          _messages.removeLast();
+        }
+        _messages.add(_ChatMessage(text: displayed, isUser: false));
+      });
+      _scrollToBottom();
+      await Future.delayed(const Duration(milliseconds: 18));
+    }
   }
 
   void _scrollToBottom() {
@@ -248,67 +280,84 @@ class _AIChatScreenState extends State<AIChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('AI Chat')),
-      body: Column(
-        children: [
-          Expanded(
-            child: ListView.builder(
-              controller: _scrollController,
-              padding: const EdgeInsets.all(16),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final msg = _messages[index];
-                return Align(
-                  alignment: msg.isUser ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: msg.isUser
-                          ? Theme.of(context).colorScheme.primary.withOpacity(0.8)
-                          : Colors.grey[200],
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      msg.text,
-                      style: TextStyle(
-                        color: msg.isUser ? Colors.white : Colors.black87,
-                        fontSize: 16,
+      body: SafeArea(
+        child: Container(
+          margin: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: Colors.deepPurple.shade100, width: 2),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.deepPurple.withOpacity(0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                  controller: _scrollController,
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _messages.length,
+                  itemBuilder: (context, index) {
+                    final msg = _messages[index];
+                    return Align(
+                      alignment: msg.isUser ? Alignment.centerRight : Alignment.centerLeft,
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: msg.isUser
+                              ? Theme.of(context).colorScheme.primary.withOpacity(0.8)
+                              : Colors.grey[200],
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          msg.text,
+                          style: TextStyle(
+                            color: msg.isUser ? Colors.white : Colors.black87,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              if (_isLoading)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                  child: CircularProgressIndicator(),
+                ),
+              Container(
+                color: Colors.grey[100],
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        decoration: const InputDecoration(
+                          hintText: 'Type your message...'
+                        ),
+                        onSubmitted: (_) => _sendMessage(),
+                        enabled: !_isLoading,
                       ),
                     ),
-                  ),
-                );
-              },
-            ),
-          ),
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 8.0),
-              child: CircularProgressIndicator(),
-            ),
-          Container(
-            color: Colors.grey[100],
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: const InputDecoration(
-                      hintText: 'Type your message...'
+                    IconButton(
+                      icon: const Icon(Icons.send),
+                      color: Theme.of(context).colorScheme.primary,
+                      onPressed: _isLoading ? null : _sendMessage,
                     ),
-                    onSubmitted: (_) => _sendMessage(),
-                    enabled: !_isLoading,
-                  ),
+                  ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  color: Theme.of(context).colorScheme.primary,
-                  onPressed: _isLoading ? null : _sendMessage,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
