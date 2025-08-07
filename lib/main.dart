@@ -369,14 +369,168 @@ class _ChatMessage {
   _ChatMessage({required this.text, required this.isUser});
 }
 
-class ActivitiesScreen extends StatelessWidget {
+class ActivitiesScreen extends StatefulWidget {
   const ActivitiesScreen({super.key});
+
+  @override
+  State<ActivitiesScreen> createState() => _ActivitiesScreenState();
+}
+
+class _ActivitiesScreenState extends State<ActivitiesScreen> {
+  final TextEditingController _hobbiesController = TextEditingController();
+  final TextEditingController _habitsController = TextEditingController();
+  final TextEditingController _timeController = TextEditingController();
+  String? _suggestedActivity;
+  bool _isLoading = false;
+
+  // Gemini API key (reuse from AIChatScreen)
+  static const String _apiKey = 'AIzaSyBhXvDmckHn3fg8wjcw2cPjSnWOxrImI-k';
+
+  Future<void> _generateActivity() async {
+    final hobbies = _hobbiesController.text.trim();
+    final habits = _habitsController.text.trim();
+    final time = _timeController.text.trim();
+
+    if (hobbies.isEmpty || habits.isEmpty || time.isEmpty) {
+      setState(() {
+        _suggestedActivity = "Please fill in all fields.";
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _suggestedActivity = null;
+    });
+
+    final prompt =
+        "Based on these hobbies/interests: $hobbies, daily habits: $habits, and available time: $time minutes, suggest one healthy, mindful activity the user can do right now. Be specific and encouraging.";
+
+    final url = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent');
+    final headers = {'Content-Type': 'application/json', 'X-Goog-Api-Key': _apiKey};
+    final body = jsonEncode({
+      "contents": [
+        {
+          "parts": [
+            {"text": prompt}
+          ]
+        }
+      ]
+    });
+
+    try {
+      final response = await http.post(url, headers: headers, body: body);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final text = data['candidates']?[0]?['content']?['parts']?[0]?['text'];
+        setState(() {
+          _suggestedActivity = text != null && text.trim().isNotEmpty
+              ? text.trim()
+              : "Sorry, I couldn't generate an activity. Please try again.";
+        });
+      } else {
+        setState(() {
+          _suggestedActivity = "Sorry, there was a problem connecting to the AI service.";
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _suggestedActivity = "Sorry, there was a network error. Please try again.";
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _hobbiesController.dispose();
+    _habitsController.dispose();
+    _timeController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Activities')),
-      body: const Center(child: Text('Activities feature coming soon!')),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text(
+                "Tell us about yourself",
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              TextField(
+                controller: _hobbiesController,
+                decoration: const InputDecoration(
+                  labelText: "Your hobbies/interests",
+                  border: OutlineInputBorder(),
+                  hintText: "e.g. painting, yoga, reading",
+                ),
+                minLines: 1,
+                maxLines: 2,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _habitsController,
+                decoration: const InputDecoration(
+                  labelText: "Your daily habits",
+                  border: OutlineInputBorder(),
+                  hintText: "e.g. morning walk, journaling",
+                ),
+                minLines: 1,
+                maxLines: 2,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _timeController,
+                decoration: const InputDecoration(
+                  labelText: "Available time (minutes)",
+                  border: OutlineInputBorder(),
+                  hintText: "e.g. 15",
+                ),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                icon: const Icon(Icons.lightbulb),
+                label: const Text("Suggest Activity"),
+                onPressed: _isLoading ? null : _generateActivity,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(height: 24),
+              if (_isLoading)
+                const Center(child: CircularProgressIndicator()),
+              if (_suggestedActivity != null && !_isLoading)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.deepPurple.shade50,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.deepPurple.shade100),
+                  ),
+                  child: Text(
+                    _suggestedActivity!,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
